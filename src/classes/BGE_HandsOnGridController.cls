@@ -66,7 +66,6 @@ global class BGE_HandsOnGridController {
 
     private static void loadDynamicColumns() {
 
-    //    Batch_Template_Field__c[] templateFields = new Batch_Template_Field__c[]{};
         templateFields = new Batch_Template_Field__c[]{};
 
         BGE_DynamicalColumnWrapper column;
@@ -117,8 +116,6 @@ global class BGE_HandsOnGridController {
 
         query = query + ' FROM DataImport__c WHERE NPSP_Data_Import_Batch__c = \'' +  pBatchId +'\'' + ' ORDER BY createdDate ASC LIMIT 5000';
 
-        system.debug('QUERY    ' + query);
-
         data = Database.query(query);
     }
 
@@ -149,11 +146,74 @@ global class BGE_HandsOnGridController {
 
             response.addDataImportId(newDataImport.Id);
 
-            response.addMessage('Data Import successfully created or updated');
+            dryRunProcessByRow(newDataImport);
+
+            update newDataImport;
+
+            response.addName(newDataImport.Name);
+
+            response.addFailureInformation(newDataImport.FailureInformation__c);
+
+            response.addAccount1ImportStatus(newDataImport.Account1ImportStatus__c);
+
+            response.addAccount2ImportStatus(newDataImport.Account2ImportStatus__c);
+
+            response.addCampaignMemberStatus(newDataImport.Campaign_Member_Status__c);
+
+            response.addContact1ImportStatus(newDataImport.Contact1ImportStatus__c);
+
+            response.addContact2ImportStatus(newDataImport.Contact2ImportStatus__c);
+
+            response.addDonationImportStatus(newDataImport.DonationImportStatus__c);
+
+            response.addHomeAddressImportStatus(newDataImport.HomeAddressImportStatus__c);
+
+            response.addPaymentImportStatus(newDataImport.PaymentImportStatus__c);
+
+            response.addAccount1Imported(newDataImport.Account1Imported__c);
+
+            response.addAccount2Imported(newDataImport.Account2Imported__c);
+
+            response.addContact1Imported(newDataImport.Contact1Imported__c);
+
+            response.addContact2Imported(newDataImport.Contact2Imported__c);
+
+            response.addDonationImported(newDataImport.DonationImported__c);
+
+            response.addHomeAddressImported(newDataImport.HomeAddressImported__c);
+
+            response.addHouseholdAccountImported(newDataImport.HouseholdAccountImported__c);
+
+            response.addPaymentImported(newDataImport.PaymentImported__c);
+
+            response.addImportedDate(newDataImport.ImportedDate__c);
+
+            response.addStatus(newDataImport.Status__c);
+
+            if (newDataImport.Status__c.equals('Dry Run - Error')) {
+
+                response.addMessage('Please validate information ' + newDataImport.FailureInformation__c);
+            }
+            else {
+
+                response.addMessage('Data Import successfully created or updated');
+            }
+        }
+        catch (JSONException ex){
+
+            String error = 'You have introduced an incorrect value in one of the cells, please check.';
+
+            response.addError(error);
+        }
+        catch (DmlException dmlEx) {
+
+            String error = 'The record could not be saved in the database, please check the data you have entered..';
+
+            response.addError(error);
         }
         catch (Exception e) {
 
-            String error = e.getStackTraceString();
+            String error = e.getMessage();
 
             response.addError(error);
         }
@@ -459,22 +519,64 @@ global class BGE_HandsOnGridController {
     }
 
     /*
-    * Run Dry Run process - and display errors is something goes wrong.
-    * For now we wanna simulate the integration of process and display a test array of errors
+    * Run Dry Run process - and display errors if something goes wrong.
     * @Returns ResponseWrapper
     */
     @RemoteAction
-    global static ResponseWrapper dryRunProcess() {
+    global static ResponseWrapper dryRunProcess(String pBatchId) {
+
+        list<ID> listBatchId = new list<ID>();
+
+        listBatchId.add(pBatchId);
 
         ResponseWrapper response = new ResponseWrapper();
-        String[] simulateArrayErrors = new String[]{};
 
-        simulateArrayErrors.add('Exists an inactive campaign, please validate');
+        try {
 
-        for (String error : simulateArrayErrors) {
+            List<BDI_DataImport_API.ProcessDataImportBatchesResult> importedBatches = BDI_DataImport_API.processDataImportBatches(listBatchId,true);
 
-            response.addMessage(error);
+            for (BDI_DataImport_API.ProcessDataImportBatchesResult result : importedBatches) {
+
+                response.addMessage('BATCH JOB IS RUNNING WITH ID:    ' + result.apexJobId);
+            }
+
+        } catch (exception ex) {
+
+            response.addError(ex.getMessage());
         }
+
+        return response;
+    }
+
+    @RemoteAction
+    global static ResponseWrapper dryRunProcessByRow(DataImport__c dataImport) {
+
+        Data_Import_Settings__c[] diSettings = [SELECT Id,
+                                                        Account_Custom_Unique_ID__c,
+                                                        Account_Matching_Rule__c,
+                                                        Batch_Size__c,
+                                                        Run_Opportunity_Rollups_while_Processing__c,
+                                                        Contact_Custom_Unique_ID__c,
+                                                        Contact_Matching_Rule__c,
+                                                        Donation_Matching_Behavior__c,
+                                                        Donation_Matching_Implementing_Class__c,
+                                                        Donation_Matching_Rule__c,
+                                                        Donation_Date_Range__c,
+                                                        Post_Process_Implementing_Class__c
+                                                FROM Data_Import_Settings__c LIMIT 1];
+        Data_Import_Settings__c diSetting;
+
+        DataImport__c[] dataImports = new DataImport__c[]{};
+        dataImports.add(dataImport);
+
+        if (!diSettings.isEmpty()) {
+
+            diSetting = diSettings[0];
+            BDI_DataImport_API.processDataImportRecords(diSetting, dataImports, true);
+        }
+
+        system.debug('TEST DATA IMPORT DATA ' + dataImports);
+        ResponseWrapper response = new ResponseWrapper();
 
         return response;
     }
@@ -508,6 +610,26 @@ global class BGE_HandsOnGridController {
         public String[] messages { get; set; }
         public String[] dataImportIds { get; set; }
 
+        public String name { get; set; }
+        public String failureInformation { get; set; }
+        public String account1ImportStatus { get; set; }
+        public String account2ImportStatus { get; set; }
+        public String campaignMemberStatus { get; set; }
+        public String contact1ImportStatus { get; set; }
+        public String contact2ImportStatus { get; set; }
+        public String donationImportStatus { get; set; }
+        public String homeAddressImportStatus { get; set; }
+        public String paymentImportStatus { get; set; }
+        public String account1Imported { get; set; }
+        public String account2Imported { get; set; }
+        public String contact1Imported { get; set; }
+        public String contact2Imported { get; set; }
+        public String donationImported { get; set; }
+        public String homeAddressImported { get; set; }
+        public String householdAccountImported { get; set; }
+        public String paymentImported { get; set; }
+        public DateTime importedDate { get; set; }
+        public String status { get; set; }
 
 
         //Constructor
@@ -539,9 +661,109 @@ global class BGE_HandsOnGridController {
             addMessage(errorMessage);
         }
 
+        public void addName(String pName){
+
+            name = pName;
+        }
+
         public void addDataImportId(String dataImportId) {
 
             dataImportIds.add(dataImportId);
+        }
+
+        public void addFailureInformation(String pFailureInformation) {
+
+            failureInformation = pFailureInformation;
+        }
+
+        public void addAccount1ImportStatus(String pAccount1ImportStatus) {
+
+            account1ImportStatus = pAccount1ImportStatus;
+        }
+
+        public void addAccount2ImportStatus(String pAccount2ImportStatus) {
+
+            account2ImportStatus = pAccount2ImportStatus;
+        }
+
+        public void addCampaignMemberStatus(String pCampaignMemberStatus) {
+
+            campaignMemberStatus = pCampaignMemberStatus;
+        }
+
+        public void addContact1ImportStatus(String pContact1ImportStatus) {
+
+            contact1ImportStatus = pContact1ImportStatus;
+        }
+
+        public void addContact2ImportStatus(String pContact2ImportStatus) {
+
+            contact2ImportStatus = pContact2ImportStatus;
+        }
+
+        public void addDonationImportStatus(String pDonationImportStatus) {
+
+            donationImportStatus = pDonationImportStatus;
+        }
+
+        public void addHomeAddressImportStatus(String pHomeAddressImportStatus) {
+
+            homeAddressImportStatus = pHomeAddressImportStatus;
+        }
+
+        public void addPaymentImportStatus(String pPaymentImportStatus) {
+
+            paymentImportStatus = pPaymentImportStatus;
+        }
+
+        public void addAccount1Imported(String pAccount1Imported) {
+
+            account1Imported = pAccount1Imported;
+        }
+
+        public void addAccount2Imported(String pAccount2Imported) {
+
+            account2Imported = pAccount2Imported;
+        }
+
+        public void addContact1Imported(String pContact1Imported) {
+
+            contact1Imported = pContact1Imported;
+        }
+
+        public void addContact2Imported(String pContact2Imported) {
+
+            contact2Imported = pContact2Imported;
+        }
+
+        public void addDonationImported(String pDonationImported) {
+
+            donationImported = pDonationImported;
+        }
+
+        public void addHomeAddressImported(String pHomeAddressImported) {
+
+            homeAddressImported = pHomeAddressImported;
+        }
+
+        public void addHouseholdAccountImported(String pHouseholdAccountImported) {
+
+            householdAccountImported = pHouseholdAccountImported;
+        }
+
+        public void addPaymentImported(String pPaymentImported) {
+
+            paymentImported = pPaymentImported;
+        }
+
+        public void addImportedDate(DateTime pImportedDate) {
+
+            importedDate = pImportedDate;
+        }
+
+        public void addStatus(String pStatus) {
+
+            status = pStatus;
         }
     }
 }

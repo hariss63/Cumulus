@@ -85,8 +85,9 @@
         <members>BGE_DynamicalColumnWrapper</members>
         <members>BGE_HandsOnGridController</members>
         <members>BGE_HandsOnGridControllerForTest</members>
-        <members>BGE_HandsOnGridTemplateHelper</members>
         <members>BGE_TemplateController</members>
+        <members>BGE_TemplateNameHelper</members>
+        <members>BGE_TemplateTriggerHandler</members>
         <members>CAM_CascadeDeleteLookups_TDTM</members>
         <members>CAM_CascadeDeleteLookups_TEST</members>
         <members>CAO_Constants</members>
@@ -437,6 +438,7 @@
         <name>ApexPage</name>
     </types>
     <types>
+    	<members>BGE_TemplateTrigger</members>
         <members>TDTM_Account</members>
         <members>TDTM_Address</members>
         <members>TDTM_Affiliation</members>

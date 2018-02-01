@@ -9,7 +9,8 @@ public with sharing class BGE_DynamicalColumnWrapper {
                                                                    'CURRENCY' => 'numeric',
                                                                    'BOOLEAN' => 'boolean',
                                                                    'NUMBER' => 'numeric',
-                                                                   'DECIMAL' => 'numeric'
+                                                                   'DECIMAL' => 'numeric',
+																   'EMAIL' => 'email'
                                                                 };
 
 	public String apiName { get; set; }
@@ -19,26 +20,37 @@ public with sharing class BGE_DynamicalColumnWrapper {
 	public Boolean stickyField { get; set; }
 	public String  stickyFieldValue { get; set; }
 	public Boolean stickyFieldVisibility { get; set; }
+	public Boolean required { get; set; }
+	public Boolean allowInvalid { get; set; }
 
 	//Constructor
 	public BGE_DynamicalColumnWrapper(Batch_Template_Field__c templateField) {
 
 		Map <String, Schema.SObjectType> schemaMap = Schema.getGlobalDescribe();
 		Map <String, Schema.SObjectField> fieldMap = schemaMap.get('DataImport__c').getDescribe().fields.getMap();
-		Schema.describefieldresult field = fieldMap.get(templateField.Name).getDescribe();
+		Schema.SObjectField sObjectField = fieldMap.get(templateField.Name);
 
-		apiName = templateField.Name;
-		name = field.getLabel();
-		isDecimal = 'false';
-		type = String.valueOf(field.getType());
+		if (sObjectField != null) {
 
-		stickyField = templateField.Sticky_Field__c;
-		stickyFieldValue = templateField.Sticky_Field_Value__c;
-		stickyFieldVisibility = templateField.Sticky_Field_Visibility__c;
+			Schema.DescribeFieldResult field = sObjectField.getDescribe();
 
-		mapFieldTypes();
+			apiName = templateField.Name;
+			name = field.getLabel();
+			isDecimal = 'false';
+			type = String.valueOf(field.getType());
 
-		system.debug('TEST ' + this);
+			stickyField = templateField.Sticky_Field__c;
+			stickyFieldValue = templateField.Sticky_Field_Value__c;
+			stickyFieldVisibility = templateField.Sticky_Field_Visibility__c;
+			required = templateField.Required__c;
+			allowInvalid = false;
+
+			mapFieldTypes();
+		}
+		else {
+			name = 'ERROR';
+			type = 'text';
+		}
 	}
 
 	private void mapFieldTypes() {
