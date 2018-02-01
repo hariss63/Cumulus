@@ -120,21 +120,6 @@ global class BGE_HandsOnGridController {
         system.debug('QUERY    ' + query);
 
         data = Database.query(query);
-
-        /*
-        data = [SELECT Id,
-                       Donation_Name__c,
-                       Donation_Amount__c,
-                       Donation_Date__c,
-                       Donation_Stage__c,
-                       Donation_Donor__c,
-                       NPSP_Data_Import_Batch__c
-
-                FROM DataImport__c
-                WHERE NPSP_Data_Import_Batch__c =: pBatchId
-                ORDER BY createdDate ASC
-                LIMIT 5000];
-        */
     }
 
     /*
