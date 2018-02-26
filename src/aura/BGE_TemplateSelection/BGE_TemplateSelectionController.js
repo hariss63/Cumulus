@@ -1,7 +1,16 @@
 ({
 	doInit: function (component, event, helper) {
 
+		var associatedBatch = component.get('v.associatedBatch');
+
+		console.log('ASSOCIATED BATCH ' + associatedBatch);
+		if (associatedBatch.Name != null && associatedBatch.Name != undefined) {
+
+			component.set('v.hasBatch', true);
+		}
+
 		var action = component.get('c.loadTemplates');
+
 		action.setCallback(this, function (response) {
 			//store state of response
 			var state = response.getState();
@@ -13,13 +22,21 @@
 		$A.enqueueAction(action);
 	},
 
-	nextToBatchCreation : function(component, event, helper) {
+	nextToPrevious: function (component, event, helper) {
+
+		var fromCreation = component.get('v.fromCreation');
+		var componentName = "c:BGE_BatchCreation";
+
+		if (fromCreation == false) {
+
+			componentName = "c:BGE_BatchSelection";
+		}
 
 		$A.createComponent(
-			"c:BGE_BatchCreation",
+			componentName,
 			{},
 
-			function(newComp) {
+			function (newComp) {
 				var content = component.find("body");
 				content.set("v.body", newComp);
 			});
@@ -104,5 +121,17 @@
 				content.set("v.body", newComp);
 			});
 		
+	},
+
+	nextToInitial: function (component, event, helper) {
+
+		$A.createComponent(
+			"c:BGE_Initial",
+			{},
+
+			function (newComp) {
+				var content = component.find("body");
+				content.set("v.body", newComp);
+			});
 	},
 })

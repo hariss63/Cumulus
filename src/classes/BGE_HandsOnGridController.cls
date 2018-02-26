@@ -97,7 +97,6 @@ global class BGE_HandsOnGridController {
      */
     private static void loadData(Id pBatchId) {
 
-
         String query = 'SELECT ';
 
         for (Batch_Template_Field__c field : templateFields) {
@@ -120,12 +119,65 @@ global class BGE_HandsOnGridController {
     }
 
     /*
-     * Adds a new Data Import from the json data
-     * @Param jsonData - data to create the Data Import
-     * @Returns ResponseWrapper
+     * @description Updates a Data Import from the json data
+     * @param jsonData - data to update the Data Import
+     * @return ResponseWrapper
      */
     @RemoteAction
-    global static ResponseWrapper save(Id rowId, String pBatchId, String jsonData) {
+    global static ResponseWrapper updateCell (Id rowId, String pBatchId, String jsonData) {
+
+        ResponseWrapper response = new ResponseWrapper();
+
+        JSONParser parser = JSON.createParser(jsonData);
+
+        try {
+
+            DataImport__c dataImportToUpdate = (DataImport__c) parser.readValueAs(Type.forName('DataImport__c'));
+            dataImportToUpdate.NPSP_Data_Import_Batch__c = pBatchId;
+
+            if (rowId != null && !String.isEmpty(rowId)) {
+
+                dataImportToUpdate.Id = rowId;
+            }
+
+            upsert dataImportToUpdate;
+            response.addDataImportId(dataImportToUpdate.Id);
+        }
+        catch (DmlException dmlEx) {
+
+            String error = 'Error in this field:     ' + dmlEx.getDmlFieldNames(0);
+
+            response.addError(error);
+        }
+        catch (JSONException ex){
+
+            String error = 'Incorrect value in one of the cells, please check.';
+
+            response.addError(error);
+        }
+        catch(System.LimitException limitEx) {
+
+            String error = 'EXCEPTION OF TYPE ' + limitEx.getTypeName() + ' WAS CAUSED BY ' + limitEx.getCause() + ' ' + limitEx.getMessage() + ' AT LINE ' + limitEx.getLineNumber();
+
+            response.addError(error);
+        }
+        catch (Exception e) {
+
+            String error = e.getMessage();
+
+            response.addError(error);
+        }
+
+        return response;
+    }
+
+    /*
+     * @description Adds a new Data Import from the json data
+     * @param jsonData - data to create the Data Import
+     * @return ResponseWrapper
+     */
+    @RemoteAction
+    global static ResponseWrapper save (Id rowId, String pBatchId, String jsonData) {
 
         ResponseWrapper response = new ResponseWrapper();
 
@@ -146,7 +198,7 @@ global class BGE_HandsOnGridController {
 
             response.addDataImportId(newDataImport.Id);
 
-            dryRunProcessByRow(newDataImport);
+            dryRunProcessByRow(newDataImport, pBatchId);
 
             update newDataImport;
 
@@ -199,15 +251,22 @@ global class BGE_HandsOnGridController {
                 response.addMessage('Data Import successfully created or updated');
             }
         }
-        catch (JSONException ex){
+        catch (DmlException dmlEx) {
 
-            String error = 'You have introduced an incorrect value in one of the cells, please check.';
+        //    String error = 'The record could not be saved in the database, please check the data you have entered.' + ex.getDmlFieldNames(0);
+              String error = 'Error in this field:     ' + dmlEx.getDmlFieldNames(0);
 
             response.addError(error);
         }
-        catch (DmlException dmlEx) {
+        catch (JSONException ex){
 
-            String error = 'The record could not be saved in the database, please check the data you have entered..';
+            String error = 'Incorrect value in one of the cells, please check.';
+
+            response.addError(error);
+        }
+        catch(System.LimitException limitEx) {
+
+            String error = 'EXCEPTION OF TYPE ' + limitEx.getTypeName() + ' WAS CAUSED BY ' + limitEx.getCause() + ' ' + limitEx.getMessage() + ' AT LINE ' + limitEx.getLineNumber();
 
             response.addError(error);
         }
@@ -222,9 +281,9 @@ global class BGE_HandsOnGridController {
     }
 
     /*
-     * Adds many new Data Import records from the json data
-     * @Param jsonData - data to create the Data Import
-     * @Returns ResponseWrapper
+     * @description Adds many new Data Import records from the json data
+     * @param jsonData - data to create the Data Import
+     * @return ResponseWrapper
      */
     @RemoteAction
     global static ResponseWrapper saveAll(String pBatchId,String jsonData) {
@@ -433,9 +492,9 @@ global class BGE_HandsOnGridController {
 
 
     /*
-     * Deletes many Data Import objects from the json data
-     * @Param batchIds - Ids of the Data Imports to delete.
-     * @Returns ResponseWrapper
+     * @description Deletes many Data Import objects from the json data
+     * @param batchIds - Ids of the Data Imports to delete.
+     * @return ResponseWrapper
      */
     @RemoteAction
     global static ResponseWrapper deleteAll(List<String> batchIds) {
@@ -519,8 +578,8 @@ global class BGE_HandsOnGridController {
     }
 
     /*
-    * Run Dry Run process - and display errors if something goes wrong.
-    * @Returns ResponseWrapper
+    * @description Run Dry Run process - and display errors if something goes wrong.
+    * @return ResponseWrapper
     */
     @RemoteAction
     global static ResponseWrapper dryRunProcess(String pBatchId) {
@@ -548,34 +607,53 @@ global class BGE_HandsOnGridController {
         return response;
     }
 
+     /*******************************************************************************************************
+    * @description Integrate BDI Dry Run logic, process each DataImport saved in the grid. Get Data Import Setting corresponding to the batch
+    * @param Data Import record (edited or created). Batch Id corresponding to current batch used in the grid
+    * @return ResponseWrapper Result of data to set at grid level
+    */ 
     @RemoteAction
-    global static ResponseWrapper dryRunProcessByRow(DataImport__c dataImport) {
+    global static ResponseWrapper dryRunProcessByRow (DataImport__c dataImport, String pBatchId) {
 
-        Data_Import_Settings__c[] diSettings = [SELECT Id,
-                                                        Account_Custom_Unique_ID__c,
-                                                        Account_Matching_Rule__c,
-                                                        Batch_Size__c,
-                                                        Run_Opportunity_Rollups_while_Processing__c,
-                                                        Contact_Custom_Unique_ID__c,
-                                                        Contact_Matching_Rule__c,
-                                                        Donation_Matching_Behavior__c,
-                                                        Donation_Matching_Implementing_Class__c,
-                                                        Donation_Matching_Rule__c,
-                                                        Donation_Date_Range__c,
-                                                        Post_Process_Implementing_Class__c
-                                                FROM Data_Import_Settings__c LIMIT 1];
-        Data_Import_Settings__c diSetting;
+        DataImportBatch__c[] batches = new DataImportBatch__c[]{};
+        DataImportBatch__c currentBatch;
 
-        DataImport__c[] dataImports = new DataImport__c[]{};
-        dataImports.add(dataImport);
+        batches = [SELECT Id,
+                        Batch_Template__c,
+                        Account_Custom_Unique_ID__c,
+                        Batch_Process_Size__c,
+                        Contact_Custom_Unique_ID__c,
+                        Contact_Matching_Rule__c,
+                        Donation_Matching_Behavior__c,
+                        Donation_Matching_Implementing_Class__c,
+                        Donation_Matching_Rule__c,
+                        Donation_Date_Range__c,
+                        Run_Opportunity_Rollups_while_Processing__c,
+                        Post_Process_Implementing_Class__c
+                    FROM DataImportBatch__c
+                    WHERE Id =: pBatchId
+                    LIMIT 1];
 
-        if (!diSettings.isEmpty()) {
+        try {
 
-            diSetting = diSettings[0];
-            BDI_DataImport_API.processDataImportRecords(diSetting, dataImports, true);
+             if (!batches.isEmpty()) {
+                currentBatch = batches[0];
+            }
+
+            Data_Import_Settings__c diSetting = BDI_DataImportService.diSettingsFromDiBatch(currentBatch);
+
+            DataImport__c[] dataImports = new DataImport__c[]{};
+            dataImports.add(dataImport);
+
+            if (diSetting != null) {
+
+                BDI_DataImport_API.processDataImportRecords(diSetting, dataImports, true);
+            }
+        }
+        catch (Exception ex) {
+            System.debug('Error at time to obtain DataImportSetting from BDI Class diSettingsFromDiBatch ' + ex.getMessage());
         }
 
-        system.debug('TEST DATA IMPORT DATA ' + dataImports);
         ResponseWrapper response = new ResponseWrapper();
 
         return response;

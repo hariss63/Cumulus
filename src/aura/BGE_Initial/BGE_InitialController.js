@@ -46,4 +46,19 @@
         });
     },
 
+    nextToSelectTemplate: function (component, event, helper) {
+
+        $A.createComponent(
+            "c:BGE_BatchContainer",
+            {
+                'showTemplateSelection': true,
+                'showProgressBar': true,
+                'processStage': 'selectBatchStage'
+            },
+
+            function (newComp) {
+                var content = component.find("body");
+                content.set("v.body", newComp);
+            });
+    },
 })

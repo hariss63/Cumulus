@@ -31,7 +31,7 @@
 
 			<lightning:layoutItem size="12" padding="around-medium" class="slds-align_absolute-center slds-m-top_medium">
 
-				<lightning:button class="button-style slds-p-around_medium slds-button_icon-large" onclick="{!c.nextToCreateTemplate}">
+				<lightning:button class="button-style slds-p-around_medium slds-button_icon-large" onclick="{!c.nextToSelectTemplate}">
 					<label class="slds-text-heading_small"> TEMPLATES </label>
 				</lightning:button>
 			</lightning:layoutItem>

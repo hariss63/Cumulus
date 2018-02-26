@@ -1,29 +1,39 @@
-<aura:component controller="BGE_AuraController" Implements="flexipage:availableForRecordHome,force:hasRecordId">
-
+<aura:component controller="BGE_AuraController"     implements="force:appHostable,flexipage:availableForAllPageTypes,flexipage:availableForRecordHome,force:hasRecordId,forceCommunity:availableForAllPageTypes,force:lightningQuickAction">
     <aura:handler name="init" value="{!this}" action="{!c.doInit}"/>
     <aura:attribute name="template" type="Batch_Template__c" access="global" default="{sobjectType : 'Batch_Template__c'}" />
     <aura:attribute name="fields" type="Batch_Template_Field__c" access="global" default="{sobjectType : 'Batch_Template_Field__c[]'}" />
+
+    <aura:attribute name="errorInLastRow" type="Boolean" access="global" default="false" />
 
     <aura:attribute name="toCreate" type="Boolean" access="global" default="true" />
     <aura:attribute name="toClone" type="Boolean" access="global" default="false" />
     <aura:attribute name="toEdit" type="Boolean" access="global" default="false" />
     <aura:attribute name="toDelete" type="Boolean" access="global" default="false" />
 
- <!--Event handler for Add and Delete Row Event which is fire from Child Component-->    
+    <!--Event handler for Add and Delete Row Event which is fire from Child Component-->
     <aura:handler name="AddRowEvent" event="c:BGE_AddTemplateFieldRowEvent" action="{!c.addNewRow}"/>
     <aura:handler name="DeleteRowEvent" event="c:BGE_RemoveTemplateFieldRowEvent" action="{!c.removeRow}"/>
 
- <!--Aura Attribute for store Contact Object List as Array-->    
+    <!--Aura Attribute for store Contact Object List as Array-->    
     <aura:attribute name="templateFields" type="Batch_Template_Field__c[]" />
     <aura:attribute name="templateFieldsToDelete" type="Batch_Template_Field__c[]" />
 
+    <aura:attribute name="labelsApiNames" type="Object" />
+    <aura:attribute name="labelValue" type="String" />
+
     <div aura:id="body">
 
-        <lightning:button class="slds-m-left_xx-large slds-text-heading_small button-hyperlink" onclick="{!c.nextToInitial}" label="Back"/>
+        <lightning:button class="slds-m-left_xx-large slds-text-heading_small button-hyperlink" onclick="{!c.nextToSelectTemplate}" label="Back"/>
 
         <div class="slds-form slds-form_stacked slds-m-around_medium adapt-margin">
 
             <h2 class="slds-text-heading_medium slds-m-bottom_x-large">New Template</h2>
+
+            <div class="slds-form-element">
+                <lightning:input type="text" name="api label" label="Template Label - API Name" value="{!v.labelValue}" />
+                <lightning:button label="Get API Name" onclick="{! c.validateLabel }" />
+            </div>
+
             <div class="slds-form-element">
                 <lightning:input type="text" name="template name" label="Template Name" value="{!v.template.Name}"/>
             </div>

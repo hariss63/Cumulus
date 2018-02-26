@@ -2,6 +2,13 @@
 	saveTemplate: function (component, newTemplateRecord, batchTemplateFields, batchTemplateFieldsToDelete) {
 
 		var action;
+		var existsInvalidValues = component.get("v.errorInLastRow");
+
+		//To remove last row if has any error
+		if (existsInvalidValues) {
+
+			batchTemplateFields.pop();
+		}
 
 		if (component.get("v.toCreate")) {
 			action = component.get("c.saveTemplate");
@@ -46,7 +53,7 @@
 				else {
 					toastEvent.setParams({
 						title: "Warning!",
-						message: "Already exists a record with it Name, please change.",
+						message: "There is already a record with this Name, please change the Name.",
 						type: "warning",
 						duration: 5
 					});
@@ -59,33 +66,85 @@
 	},
 
 	createObjectData: function (component, event) {
-		// get the templateFields from component and add(push) New Object to List
-		var rowItemList = component.get("v.templateFields");
 
-		rowItemList.push({
-			'sobjectType': 'Batch_Template_Field__c',
-			'Name': '',
-			'Order__c': 0,
-			'Read_Only__c': false,
-			'Required__c': false,
-			'Sticky_Field__c': false,
-			'Sticky_Field_Value__c': '',
-			'Sticky_Field_Visibility__c': false
-		});
-		// set the updated list to attribute (templateFields) again
-		component.set("v.templateFields", rowItemList);
-		console.log('FIRST ROW ' + component.get("v.templateFields"));
+		// Get the templateFields from component and add(push) New Object to List
+		var rowItemList = component.get("v.templateFields");
+		var existsInvalidValues = false;
+		var toastEvent = $A.get("e.force:showToast");
+
+		var index = rowItemList.length;
+
+		if (rowItemList.length > 0) {
+
+			index = rowItemList.length-1;
+		}
+
+		var lastFieldCreated = rowItemList[index];
+
+		for (var indexVar = 0; indexVar < rowItemList.length - 1; indexVar++) {
+
+			if (lastFieldCreated.Name == rowItemList[indexVar].Name) {
+
+				toastEvent.setParams({
+					title: "Warning!",
+					message: "Exists duplicate fields. Please validate",
+					type: "warning",
+					duration: 5
+				});
+
+				//toastEvent.fire();
+				existsInvalidValues = true;
+			}
+		}
+
+		if (lastFieldCreated != undefined && (lastFieldCreated.Name == '' || lastFieldCreated.Name == null)) {
+
+			toastEvent.setParams({
+				title: "Warning!",
+				message: "Please include at least a Name by row",
+				type: "warning",
+				duration: 5
+			});
+
+			existsInvalidValues = true;
+		}
+
+		if (!existsInvalidValues) {
+
+			rowItemList.push({
+				'sobjectType': 'Batch_Template_Field__c',
+				'Name': '',
+				'Order__c': 0,
+				'Read_Only__c': false,
+				'Required__c': false,
+				'Sticky_Field__c': false,
+				'Sticky_Field_Value__c': '',
+				'Sticky_Field_Visibility__c': false
+			});
+
+			//Set the updated list to attribute (templateFields) again
+			component.set("v.templateFields", rowItemList);
+		}
+		else {
+			component.set("v.errorInLastRow", existsInvalidValues);
+			toastEvent.fire();
+		}
+
 	},
 	// helper function for check if first Name is not null/blank on save  
-	validateRequired: function (component, event) {
+/*	validateRequired: function (component, event) {
+
 		var isValid = true;
 		var allContactRows = component.get("v.templateFields");
+
 		for (var indexVar = 0; indexVar < allContactRows.length; indexVar++) {
+
 			if (allContactRows[indexVar].Name == '') {
+
 				isValid = false;
 				alert('First Name Can\'t be Blank on Row Number ' + (indexVar + 1));
 			}
 		}
 		return isValid;
-	},
+	},*/
 })

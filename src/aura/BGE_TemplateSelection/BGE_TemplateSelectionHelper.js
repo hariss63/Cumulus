@@ -30,7 +30,9 @@
 
 				$A.createComponent(
 					"c:BGE_EnterData",
-					{ "batchId": response.getReturnValue() },
+					{ "batchId": response.getReturnValue(),
+					  "batch": batchRecord,
+					  "templateName": selectedTemplate.Name },
 
 					function (newComp) {
 						var content = component.find("body");

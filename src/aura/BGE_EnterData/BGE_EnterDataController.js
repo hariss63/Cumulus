@@ -14,12 +14,14 @@
 	nextToEnterData: function (component, event, helper) {
 
 		var batchId = component.get("v.batchId");
-		console.log('BATCH TO ENTRY DATA 2' + batchId);
+		var batch = component.get("v.batch");
+
 		if (batchId != null) {
 
 			$A.createComponent(
 				"c:BatchDataEntryPOCGrid",
-				{ "batchId": component.get("v.batchId") },
+				{ "batchId": component.get("v.batchId"),
+			      "batchName": batch.Name  },
 
 
 				function (newComp) {

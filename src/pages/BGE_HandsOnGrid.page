@@ -36,6 +36,20 @@
 
                 padding: 4px 4px;
             }
+
+            .handsontable th {
+                text-align: center
+            }
+
+            .fixed-horizontal {
+                z-index: 999;
+                width: 100%;
+                padding: 20px;
+                border: 1px solid rgb(204, 204, 204);
+                position: absolute;
+                top: 0px;
+                left: 0px;
+            }
         </style>
 
         <!-- Custom Javascript -->
@@ -83,7 +97,64 @@
                 document.getElementById("totalAmount").value = total;
 
                 var dynamicColumns = [];
-                var schema = [];
+
+                var emailValidator = function (value, callback) {
+
+                    var regex = /\S+@\S+\.\S+/;
+
+                    if (regex.test(value)) {
+
+                        callback(true);
+                    }
+                    else {
+
+                        callback(false);
+                    }
+                };
+
+                var requiredValidator = function (value, callback) {
+
+                    if (!value || String(value).length === 0) {
+
+                        callback(false);
+                    }
+                    else {
+                        callback(true);
+                    }
+                };
+
+                function cellsRenderer(instance, td, row, col, prop, value, cellProperties) {
+
+                    Handsontable.TextCell.renderer.apply(this, arguments);
+
+                    if (col == 0) {
+
+                        var dataRowId = instance.getDataAtRowProp(row, 'Id');
+                        td.id = dataRowId;
+
+                        if (dataRowId) {
+
+                            $('#' + dataRowId).css( "border-top", "none");
+                            $('#' + dataRowId).css( "border-bottom", "none");
+                            $('#' + dataRowId).attr( "readonly", "readonly");
+                        }
+
+                    }
+                }
+                $(document).ready(function() {
+                
+                    $(window).scroll(function() {
+                        $(".fixed-horizontal").css("left", $(window).scrollLeft() + "px");
+                    });
+                    
+                });
+
+                var errorCol = new Object();
+
+                errorCol.title = " ";
+                errorCol.type = "text";
+
+                dynamicColumns.push(errorCol);
 
                 for (var i=0; i < columnsData.length; i++) {
 
@@ -91,6 +162,10 @@
                     var templateField = columnsData[i];
 
                     col.data = templateField.apiName;
+                    if (templateField.required) {
+
+                        col.validator = requiredValidator;
+                    }
                     col.title = templateField.name.toUpperCase();
                     col.type = templateField.type;
 
@@ -103,6 +178,10 @@
                     // Do not wrap the content of the column
                     col.wordWrap = false;
 
+                    if (templateField.apiName == "Id") {
+
+                        col.readOnly = true;
+                    }
 
                     if (templateField.type === "date") {
 
@@ -119,6 +198,7 @@
                     if (templateField.type === "email") {
 
                         col.type = 'text';
+                        col.validator = emailValidator;
                     }
 
                     dynamicColumns.push(col);
@@ -139,12 +219,21 @@
                     search: true,
                     sortIndicator: true,
                     stretchH: 'all',
-                    autoWrapRow: false,
+                    autoWrapRow: true,
                     currentRowClassName: 'currentRow',
                     minSpareRows: 1, // always keep at least 1 spare row at the bottom.
                     fillHandle: true,
+                    fixedRowsTop:0,
+                    fixedColumnsLeft:1,
                     columns: dynamicColumns,
-                    dataSchema: schema,
+
+                    cells: function (row, col, prop) {
+
+                        if (col == 0) {
+                            return { type: { renderer: cellsRenderer } };
+                        }
+                    },
+
 
                     beforeRemoveRow: function(index, amount){
 
@@ -166,11 +255,23 @@
                                     var gridData = hot.getData();
                                     var batchIds = [];
 
-                                    for (var r=start;r<=end;r++){
+                                    if (start <= end) {
 
-                                        var row = gridData[r];
-                                        var dataRowId = row[GetColumnFromName('Id')];
-                                        batchIds.push(dataRowId);
+                                        for (var r=start;r<=end;r++){
+
+                                            var row = gridData[r];
+                                            var dataRowId = row[GetColumnFromName('Id')];
+                                            batchIds.push(dataRowId);
+                                        }
+                                    }
+                                    else {
+
+                                        for (i= -start;i <= -end;i++){
+
+                                            var row = gridData[-i];
+                                            var dataRowId = row[GetColumnFromName('Id')];
+                                            batchIds.push(dataRowId);
+                                        }
                                     }
 
                                     Visualforce.remoting.Manager.invokeAction(
@@ -198,23 +299,23 @@
                                         }
                                     );
 
-                                        hot.alter('remove_row');
-                                        hot.deselectCell();
+                                    hot.alter('remove_row');
+                                    hot.deselectCell();
 
-                                        // Set the flag back on false so we can continue deleting records individualy.
-                                        deletingRecords = false;
-                                    }
-                                    else {
-
-                                        return false;
-                                    }
+                                    // Set the flag back on false so we can continue deleting records individualy.
+                                    deletingRecords = false;
                                 }
-                                else{
+                                else {
 
-                                    alert("please select cell first");
+                                    return false;
                                 }
                             }
-                        },
+                            else {
+
+                                alert("please select cell first");
+                            }
+                        }
+                    },
 
 
                         afterRemoveRow: function(index, amount){
@@ -246,14 +347,14 @@
                             if((source === 'paste'  || source === 'autofill') && deletingRecords === false) {
 
                                 // Save all records
-                                triggerSaveAll();
+                                triggerSaveAll(changes);
                             }
                             else if (stickyEdit === true && deletingRecords === false) {
 
                                 stickyEdit = false;
 
                                 // Save all records
-                                triggerSaveAll();
+                                triggerSaveAll(changes);
                             }
                             else {
 
@@ -261,6 +362,7 @@
                                 var prop = changes[0][1];
                                 var oldValue = changes[0][2];
                                 var newValue = changes[0][3];
+                                var self = this;
 
                                 var dataRowId = this.getDataAtRowProp(row, 'Id');
 
@@ -271,6 +373,23 @@
 
                                 $scope.currentDataImport = this.getDataAtRow(row);
                                 changesToSave[dataRowId][prop] = newValue;
+
+                                triggerUpdateCell(newValue, prop, dataRowId, function(result) {
+
+                                    if (!result.success) {
+
+                                        var cell = self.getCellMeta(row, GetColumnFromName(prop));
+                                        cell.valid = false;
+                                        hot.validateCells = hot.render();
+                                    }
+
+                                    if (!dataRowId) {
+
+                                        self.setDataAtCell(row, GetColumnFromName('Id'), result.dataImportIds[0]);
+
+                                        dataRowId  = result.dataImportIds[0];
+                                    }
+                                });
                             }
 
                             // After change always creates an empty row, so count one less.
@@ -292,19 +411,25 @@
                         afterSelectionEnd: function(row, column, rowEnd, columnEnd) {
 
                             var dataRowId = this.getDataAtRowProp(lastSelectedRow, 'Id');
-
+                            var dataAtRow = this.getDataAtRow(lastSelectedRow);
                             var self = this;
 
                             if (lastSelectedRow !== null && lastSelectedRow !== row) {
 
                                 if (changesToSave[dataRowId]) {
 
-                                    triggerSave(dataRowId, changesToSave[dataRowId], function(result) {
+                                    triggerSave(dataRowId, row, lastSelectedRow, self, function(result) {
 
-                                        if (dataRowId == null) {
+                                        if (!dataRowId) {
 
                                             self.setDataAtCell(row-1, GetColumnFromName('Id'), result.dataImportIds[0]);
+
+                                            dataRowId  = result.dataImportIds[0];
                                         }
+
+                                        //Add tooltip message
+
+                                        addTooltip(dataRowId, result, false);
 
                                         var cellsToUpdate = [];
 
@@ -365,16 +490,79 @@
 
                     for (i = 0; i < numberOfColumns; i++) {
 
-                        if (name.toLowerCase() === dynamicColumns[i].data.toLowerCase() ) {
+                        if (name != undefined && dynamicColumns[i].data != undefined) {
+                            if  (name.toLowerCase() === dynamicColumns[i].data.toLowerCase() ) {
 
-                            return i;
+                                return i;
+                            }
                         }
                     }
 
                     return -1; // return -1 if nothing can be found
                 }
 
-                function triggerSave(id, data, callback) {
+
+                function addTooltip (dataRowId, result, error) {
+
+                    setTimeout(function(){
+
+                        window.scrollTo(0,0);
+
+                        var messageStyle = 'slds-theme_success';
+                        var iconStyle = 'success';
+                        var styleSuccess = 'style="fill: rgb(4, 132, 80);"';
+
+                        if (error || result.status == 'Dry Run - Error') { 
+                        
+                            messageStyle = 'slds-theme_error';
+                            iconStyle = 'warning';
+                            styleSuccess = '';
+                        }
+
+                        if (dataRowId) {
+
+                            var htmlTooltipId = 'selector' + dataRowId;
+                            var htmlIcon = '<div id='+ htmlTooltipId + '><div class="slds-form-element" style="position: relative; z-index: 2;"><div class="slds-form-element__icon slds-align-middle"><button class="slds-button slds-button_icon slds-button slds-button_icon" aria-describedby="help" title="Help"><svg class="slds-icon slds-icon-text-error slds-icon_small" ' + styleSuccess + 'aria-hidden="true"><use xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="/apexpages/slds/latest/assets/icons/utility-sprite/svg/symbols.svg#' + iconStyle + '"' + ' /></svg></button></div></div></div>';
+                            var htmlTooltip = $('<span id="selector"><div class="slds-popover slds-popover_tooltip slds-nubbin_bottom-left '  + messageStyle + '"' + ' style="position: absolute; min-width: 17em; margin-top: -7.5em;" role="tooltip" id="contentTooltip"><div class="slds-popover__body slds-text-body_small" id="notifyContent">' + result.messages[0] + '</div></span>');
+
+                            $('#' + dataRowId).append(htmlIcon);
+                            $('#' + htmlTooltipId).hover(function() {
+                                    $( this ).append(htmlTooltip);
+                                }, function() {
+                                    $( this ).find( "span:last" ).remove();
+                                });;
+                            //event.preventDefault();
+                            $scope.$apply();
+                        }
+                    }, 10);
+                }
+
+                function triggerSave(id, row, lastSelectedRow, self, callback) {
+
+                    var dataAtLastSelectedRow = {};
+ 
+                    if (!dataAtLastSelectedRow[id]) {
+
+                        dataAtLastSelectedRow[id] = {};
+                    }
+
+                    //LOAD COMPLETE DATA IMPORT ROW AND SEND TO PROCESS
+                    for (var i = 0; i < dynamicColumns.length; i++) {
+
+                        var prop = dynamicColumns[i].data;
+                        var type = dynamicColumns[i].type;
+                        var cellValue = self.getDataAtRowProp(lastSelectedRow, prop);
+
+                        if (cellValue != undefined) {
+
+                            dataAtLastSelectedRow[id][prop] = cellValue;
+
+                            if (cellValue == '' && type == 'date') {
+
+                                dataAtLastSelectedRow[id][prop] = null;
+                            }
+                        }
+                    }
 
                     // Get Batch Id from URL
                     var pBatchId = getAllUrlParams().batchid;
@@ -385,7 +573,7 @@
                             '{!$RemoteAction.BGE_HandsOnGridController.save}',
                             id,
                             pBatchId,
-                            JSON.stringify(data),
+                            JSON.stringify(dataAtLastSelectedRow),
 
                             function (result, event) {
 
@@ -407,47 +595,89 @@
                                     for (var i = 0; i < result.messages.length; i++) {
 
                                         $.notify(result.messages[i], 'error');
+
+                                        window.scrollTo(0,0);
+
+                                        //DISPLAY TOOLTIP FOR RESULTS - DRY RUN ERRORS
+
+                                            if (id) {
+
+                                                addTooltip(id, result, true);
+                                            }
                                     }
                                 }
 
                                 $scope.$apply();
                             }
                         );
-
                     }
                 }
 
-                function triggerSaveAll() {
+                function triggerUpdateCell(newValue, prop, dataRowId, callback) {
+                    
+                    var dataAtLastSelectedRow = {};
 
-                    var pBatchId = getAllUrlParams().batchid;
+                    if (!dataAtLastSelectedRow[dataRowId]) {
 
-                    Visualforce.remoting.Manager.invokeAction(
-                        '{!$RemoteAction.BGE_HandsOnGridController.saveAll}',
-                        pBatchId,
-                        JSON.stringify(hot.getSourceData(0, 0, hot.countRows() - 1, hot.countCols() - 1)),
-                        function (result, event) {
+                        dataAtLastSelectedRow[dataRowId] = {};
+                    }
 
-                            if (result == null) {
+                    //LOAD CELL DATA AND SEND TO UPDATE THE DATA IMPORT
+                    if (newValue) {
 
-                                $.notify("Changes saved",'success');
+                        dataAtLastSelectedRow[dataRowId][prop] = newValue;
+
+                        var pBatchId = getAllUrlParams().batchid;
+                        console.log(pBatchId);
+
+                        Visualforce.remoting.Manager.invokeAction(
+                            '{!$RemoteAction.BGE_HandsOnGridController.updateCell}',
+                            dataRowId,
+                            pBatchId,
+                            JSON.stringify(dataAtLastSelectedRow),
+
+                            function (result, event) {
+                                callback(result);
+                                console.log('CELL UPDATED ' + JSON.stringify(result));
+
                             }
-                            if (result != null && result.success) {
+                        );
+                    }
+                }
 
-                                $.notify(result.messages[0], 'success');
+                function triggerSaveAll(changes) {
 
-                                return;
-                            }
-                            else if (result != null && result.messages != null) {
+                    var start = changes[0][0];
+                    var end = changes[changes.length - 1][0];
+                    var gridData = hot.getData();
 
-                                for (var i = 0; i < result.messages.length; i++) {
+                    for (var r = start; r <= end; r++) {
+                        (function(r) {
+ 
+                            var row = gridData[r];
+                            var dataRowId = row[GetColumnFromName('Id')];
+                            
+                        //    triggerSave(dataRowId, r, hot, function(result) {
+                            triggerSave(dataRowId, row, r, hot, function(result) {
 
-                                    $.notify(result.messages[i], 'error');
+                                if (dataRowId === null) {
+
+                                    hot.setDataAtCell(r, GetColumnFromName('Id'), result.dataImportIds[0]);
                                 }
-                            }
 
-                            $scope.$apply();
-                        }
-                    );
+                                if (dataRowId) {
+                                    addTooltip(dataRowId, result, false);
+                                }
+                                var cellsToUpdate = [];
+
+                                cellsToUpdate = [[r, GetColumnFromName('Name'), result.name],[r, GetColumnFromName('FailureInformation__c'), result.failureInformation],[r, GetColumnFromName('Account1ImportStatus__c'), result.account1ImportStatus],[r, GetColumnFromName('Account1Imported__c'), result.account1Imported],[r, GetColumnFromName('Account2ImportStatus__c'), result.account2ImportStatus], [r, GetColumnFromName('Account2Imported__c'), result.account2Imported],[r, GetColumnFromName('Campaign_Member_Status__c'), result.campaignMemberStatus], [r, GetColumnFromName('Contact1Imported__c'), result.contact1Imported], [r, GetColumnFromName('Contact1ImportStatus__c'), result.contact1ImportStatus], [r, GetColumnFromName('Contact2ImportStatus__c'), result.contact2ImportStatus], [r, GetColumnFromName('Contact2Imported__c'), result.contact2Imported], [r, GetColumnFromName('HomeAddressImportStatus__c'), result.homeAddressImportStatus], [r, GetColumnFromName('HomeAddressImported__c'), result.homeAddressImported], [r, GetColumnFromName('HouseholdAccountImported__c'), result.householdAccountImported], [r, GetColumnFromName('HouseholdAccountImported__c'), result.householdAccountImported], [r, GetColumnFromName('ImportedDate__c'), result.importedDate],[r, GetColumnFromName('DonationImportStatus__c'), result.donationImportStatus], [r, GetColumnFromName('DonationImported__c'), result.donationImported], [r, GetColumnFromName('PaymentImportStatus__c'), result.paymentImportStatus], [r, GetColumnFromName('PaymentImported__c'), result.paymentImported], [r, GetColumnFromName('Status__c'), result.status] ];
+
+                                hot.setDataAtCell(cellsToUpdate);
+
+                                changesToSave = {};
+                            });
+                        })(r);
+                    }
                 }
 
                 function triggerDryRunProcess() {
@@ -505,13 +735,26 @@
                                 var gridData = hot.getData();
                                 var batchIds = [];
 
-                                for (var r=start;r<=end;r++){
+                                if (start <= end) {
 
-                                    var row = gridData[r];
-                                    var dataRowId = row[GetColumnFromName('Id')];
+                                    for (var r=start;r<=end;r++){
 
-                                    batchIds.push(dataRowId);
+                                        var row = gridData[r];
+                                        var dataRowId = row[GetColumnFromName('Id')];
+
+                                        batchIds.push(dataRowId);
+                                    }
                                 }
+                                else {
+
+                                    for (i= -start;i <= -end;i++){
+
+                                        var row = gridData[-i];
+                                        var dataRowId = row[GetColumnFromName('Id')];
+                                        batchIds.push(dataRowId);
+                                    }
+                                }
+
 
                                 Visualforce.remoting.Manager.invokeAction(
                                     '{!$RemoteAction.BGE_HandsOnGridController.deleteAll}',
@@ -524,7 +767,7 @@
                                         }
                                         if (result != null && result.success) {
 
-                                        //    $.notify(result.messages[0], 'success');
+                                            $.notify(result.messages[0], 'success');
                                         }
                                         else if (result != null && result.messages != null) {
 
@@ -538,7 +781,23 @@
                                     }
                                 );
 
-                                hot.alter('remove_row', start, end + 1);
+
+                                if (start <= end) {
+
+                                    // If selection starts from the first row.
+                                    if (gridData[start -1] !== null && gridData[end + 1]) {
+
+                                        hot.alter('remove_row', start, end);
+                                    }
+                                    else {
+
+                                        hot.alter('remove_row', start, end + 1);
+                                    }
+                                }
+                                else {
+
+                                    hot.alter('remove_row', end, start + 1);
+                                }
 
                                 hot.deselectCell();
 
@@ -550,7 +809,7 @@
                                 return false;
                             }
                         }
-                        else{
+                        else {
 
                             alert("please select cell first");
                         }
@@ -560,31 +819,33 @@
                 triggerDeleteAll();
                 triggerDryRunProcess();
 
+                function getRowsFromObjects(queryResult) {
+
+                    rows = [];
+
+                    for (var i = 0, l = queryResult.length; i < l; i++) {
+
+                        rows.push(queryResult[i].row);
+                    }
+
+                    return rows;
+                }
+
                 Handsontable.Dom.addEvent(searchField, 'keyup', function (event) {
 
-                    if(this.value === '') {
+                    hot.loadData(data);
 
-                        hot.updateSettings({data: data});
-                    }
-                    else {
+                    if(this.value != '') {
 
                         var queryResult = hot.search.query(this.value);
+                        rows = getRowsFromObjects(queryResult);
 
-                        activeData = [];
+                        var filtered = data.filter(function (d, ix) {
+                            return rows.indexOf(ix) >= 0;
+                        });
 
-                        for (i = 0; i < queryResult.length; i++) {
-
-                            var object = queryResult[i];
-
-                            var row = data[object.row];
-
-                            activeData.push(row);
-                        }
-
-                        hot.updateSettings({data: activeData});
-                        hot.render();
+                        hot.loadData(filtered);
                     }
-
                 });
 
                 // END DEFINING ANGULAR FUNCTIONS
@@ -597,10 +858,10 @@
 
         <div class="slds-scope">
             <div id="notifications"></div>
-            <div id="wrapper" class="slds-form slds-form_stacked" ng-controller="MainCtrl as ctrl">
+            <div id="wrapper" class="slds-form" ng-controller="MainCtrl as ctrl">
 
                 <!-- HEADER -->
-                <div class="slds-page-header">
+                <div class="slds-page-header fixed-horizontal">
                     <div class="slds-grid slds-wrap slds-grid_pull-padded">
                         <div class="slds-p-horizontal_small slds-size_1-of-2 slds-medium-size_4-of-6 slds-large-size_3-of-12">
                             <input type="search" id="handsonSearch" placeholder="search" class="slds-input" style="width: 230px;align:right;" />
@@ -625,12 +886,8 @@
                 <!-- / HEADER -->
 
                 <!-- TABLE -->
-                <div class="scrollable">
-                    <div class="slds-form-element">
-                        <div class="slds-form-element__control">
-                            <div id="my-hot-table" class="handsontable" />
-                        </div>
-                    </div>
+                <div class="slds-m-vertical_xx-large">
+                    <div id="my-hot-table" class="handsontable" style="margin-top: 7em;"/>
                 </div>
                 <!-- / TABLE -->
 

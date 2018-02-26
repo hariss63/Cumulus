@@ -1,6 +1,27 @@
 ({
     doInit: function(component, event, helper) {
 
+
+        var actionLoad = component.get('c.loadDataImportApiNames');
+
+        actionLoad.setCallback(this, function (response) {
+            //store state of response
+            var state = response.getState();
+            if (state === "SUCCESS") {
+                //set response value in objClassController attribute on component
+                ///var result = response.getReturnValue();
+                //var map1 = new Map();
+                //map1.set('bar', 'foo');
+                var result = response.getReturnValue();
+                //var resultMapped = JSON.stringify(result)
+                var data = JSON.parse(result);
+
+                console.log('RESULT ' + data['Account1 City']);
+                component.set('v.labelsApiNames', data);
+            }
+        });
+        $A.enqueueAction(actionLoad);
+
         var template = component.get('v.template');
 
         if (template.Id != null) {
@@ -61,35 +82,25 @@
             });
     },
 
-    // function for save the Records 
-   /*Save: function (component, event, helper) {
-        // first call the helper function in if block which will return true or false.
-        // this helper function check the "first Name" will not be blank on each row.
-        if (helper.validateRequired(component, event)) {
-            // call the apex class method for save the Contact List
-            // with pass the contact List attribute to method param.  
-            var action = component.get("c.saveContacts");
-            action.setParams({
-                "ListContact": component.get("v.contactList")
+    nextToSelectTemplate: function (component, event, helper) {
+
+        $A.createComponent(
+            "c:BGE_BatchContainer",
+            {
+                'showTemplateSelection': true,
+                'showProgressBar': true,
+                'processStage': 'selectBatchStage'
+            },
+
+            function (newComp) {
+                var content = component.find("body");
+                content.set("v.body", newComp);
             });
-            // set call back 
-            action.setCallback(this, function (response) {
-                var state = response.getState();
-                if (state === "SUCCESS") {
-                    // if response if success then reset/blank the 'contactList' Attribute 
-                    // and call the common helper method for create a default Object Data to Contact List 
-                    component.set("v.contactList", []);
-                    helper.createObjectData(component, event);
-                    alert('record Save');
-                }
-            });
-            // enqueue the server side action  
-            $A.enqueueAction(action);
-        }
-    },*/
+    },
 
     // function for create new object Row in Contact List 
     addNewRow: function (component, event, helper) {
+
         // call the comman "createObjectData" helper method for add new Object Row to List  
         helper.createObjectData(component, event);
     },
@@ -116,4 +127,13 @@
         // set the templateFields after remove selected row element
         component.set("v.templateFields", AllRowsList);
     },
+
+    validateLabel: function (component, event, helper) {
+
+        var data = component.get("v.labelsApiNames");
+        var labelValue = component.get("v.labelValue");
+
+        alert('API NAME ' + data[labelValue]);
+    }
+    
 })

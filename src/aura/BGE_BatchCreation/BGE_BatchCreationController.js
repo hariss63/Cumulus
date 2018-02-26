@@ -17,7 +17,8 @@
                     'showTemplateSelection': true,
                     'showProgressBar': true,
                     'processStage': 'selectBatchStage',
-                    'associatedBatch': newBatch
+                    'associatedBatch': newBatch,
+                    'fromCreation': true
                 },
 
                 function (newComp) {

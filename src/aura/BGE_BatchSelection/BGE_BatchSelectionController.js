@@ -25,7 +25,8 @@
 
                 $A.createComponent(
                     "c:BatchDataEntryPOCGrid",
-                    {"batchId": component.get("v.batchId")},
+                    {"batchId": component.get("v.batchId"),
+                        "batchName": batch.Name},
 
                     function(newComp) {
 
